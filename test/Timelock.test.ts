@@ -4,16 +4,28 @@ import { solidity } from 'ethereum-waffle';
 import { Contract, ContractFactory, BigNumber, utils } from 'ethers';
 import { Provider } from '@ethersproject/providers';
 
-import { advanceTimeAndBlock, latestBlocktime } from './shared/utilities';
+import { advanceTimeAndBlock } from './shared/utilities';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { ParamType } from 'ethers/lib/utils';
-import { encodeParameters } from '../scripts/utils';
 
 chai.use(solidity);
 
 const DAY = 86400;
 const ETH = utils.parseEther('1');
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+
+async function latestBlocktime(provider: Provider): Promise<number> {
+  const { timestamp } = await provider.getBlock('latest');
+  return timestamp;
+}
+
+function encodeParameters(
+  types: Array<string | ParamType>,
+  values: Array<any>
+) {
+  const abi = new ethers.utils.AbiCoder();
+  return abi.encode(types, values);
+}
 
 describe('Timelock', () => {
   const { provider } = ethers;
@@ -26,57 +38,59 @@ describe('Timelock', () => {
   });
 
   let Bond: ContractFactory;
-  let Cash: ContractFactory;
+  let Gold: ContractFactory;
   let Share: ContractFactory;
   let Timelock: ContractFactory;
   let Treasury: ContractFactory;
   let Boardroom: ContractFactory;
+  let MockOracle: ContractFactory;
 
   before('fetch contract factories', async () => {
     Bond = await ethers.getContractFactory('Bond');
-    Cash = await ethers.getContractFactory('Cash');
+    Gold = await ethers.getContractFactory('Gold');
     Share = await ethers.getContractFactory('Share');
     Timelock = await ethers.getContractFactory('Timelock');
     Treasury = await ethers.getContractFactory('Treasury');
     Boardroom = await ethers.getContractFactory('Boardroom');
+    MockOracle = await ethers.getContractFactory('MockOracle');
   });
 
   let bond: Contract;
-  let cash: Contract;
+  let gold: Contract;
   let share: Contract;
   let timelock: Contract;
   let treasury: Contract;
   let boardroom: Contract;
+  let oracle: Contract;
 
   let startTime: number;
 
   beforeEach('deploy contracts', async () => {
     bond = await Bond.connect(operator).deploy();
-    cash = await Cash.connect(operator).deploy();
+    gold = await Gold.connect(operator).deploy();
     share = await Share.connect(operator).deploy();
+    oracle = await MockOracle.connect(operator).deploy();
     timelock = await Timelock.connect(operator).deploy(
       operator.address,
       2 * DAY
     );
 
     boardroom = await Boardroom.connect(operator).deploy(
-      cash.address,
+      gold.address,
       share.address
     );
 
     treasury = await Treasury.connect(operator).deploy(
-      cash.address,
+      gold.address,
       bond.address,
       share.address,
-      ZERO_ADDR,
-      ZERO_ADDR,
+      oracle.address,
       boardroom.address,
       ZERO_ADDR,
-      ZERO_ADDR,
-      (await latestBlocktime(provider)) + 5 * DAY
+      (await latestBlocktime(provider)) + 7 * DAY
     );
 
-    for await (const token of [cash, bond, share]) {
+    for await (const token of [gold, bond, share]) {
       await token.connect(operator).mint(treasury.address, ETH);
       await token.connect(operator).transferOperator(treasury.address);
       await token.connect(operator).transferOwnership(treasury.address);
@@ -93,11 +107,10 @@ describe('Timelock', () => {
     it('should work correctly', async () => {
       const eta = (await latestBlocktime(provider)) + 2 * DAY + 30;
       const signature = 'transferOperator(address)';
-      const data = encodeParameters(ethers, ['address'], [operator.address]);
+      const data = encodeParameters(['address'], [operator.address]);
       const calldata = [boardroom.address, 0, signature, data, eta];
       const txHash = ethers.utils.keccak256(
         encodeParameters(
-          ethers,
           ['address', 'uint256', 'string', 'bytes', 'uint256'],
           calldata
         )
@@ -127,13 +140,11 @@ describe('Timelock', () => {
 
     beforeEach('deploy new treasury', async () => {
       newTreasury = await Treasury.connect(operator).deploy(
-        cash.address,
+        gold.address,
         bond.address,
         share.address,
-        ZERO_ADDR,
-        ZERO_ADDR,
+        oracle.address,
         boardroom.address,
-        ZERO_ADDR,
         ZERO_ADDR,
         startTime
       );
@@ -142,11 +153,10 @@ describe('Timelock', () => {
     it('should work correctly', async () => {
       const eta = (await latestBlocktime(provider)) + 2 * DAY + 30;
       const signature = 'migrate(address)';
-      const data = encodeParameters(ethers, ['address'], [newTreasury.address]);
+      const data = encodeParameters(['address'], [newTreasury.address]);
       const calldata = [treasury.address, 0, signature, data, eta];
       const txHash = ethers.utils.keccak256(
         encodeParameters(
-          ethers,
           ['address', 'uint256', 'string', 'bytes', 'uint256'],
           calldata
         )
@@ -167,7 +177,7 @@ describe('Timelock', () => {
         .to.emit(treasury, 'Migration')
         .withArgs(newTreasury.address);
 
-      for await (const token of [cash, bond, share]) {
+      for await (const token of [gold, bond, share]) {
         expect(await token.balanceOf(newTreasury.address)).to.eq(ETH);
         expect(await token.owner()).to.eq(newTreasury.address);
         expect(await token.operator()).to.eq(newTreasury.address);

@@ -1,16 +1,6 @@
-import { ParamType } from 'ethers/lib/utils';
-
-export function encodeParameters(
-  ethers: any,
-  types: Array<string | ParamType>,
-  values: Array<any>
-) {
-  const abi = new ethers.utils.AbiCoder();
-  return abi.encode(types, values);
-}
+import { ethers } from 'hardhat';
 
 export async function wait(
-  ethers: any,
   hash: string,
   desc?: string,
   confirmation: number = 1

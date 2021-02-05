@@ -8,6 +8,7 @@ chai.use(solidity);
 
 describe('Tokens', () => {
   const ETH = utils.parseEther('1');
+  const MINT_BALANCE = utils.parseEther('0.001');
   const ZERO = BigNumber.from(0);
   const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
@@ -20,12 +21,12 @@ describe('Tokens', () => {
   });
 
   let Bond: ContractFactory;
-  let Cash: ContractFactory;
+  let Gold: ContractFactory;
   let Share: ContractFactory;
 
   before('fetch contract factories', async () => {
     Bond = await ethers.getContractFactory('Bond');
-    Cash = await ethers.getContractFactory('Cash');
+    Gold = await ethers.getContractFactory('Gold');
     Share = await ethers.getContractFactory('Share');
   });
 
@@ -60,32 +61,32 @@ describe('Tokens', () => {
     });
   });
 
-  describe('Cash', () => {
+  describe('Gold', () => {
     let token: Contract;
 
     before('deploy token', async () => {
-      token = await Cash.connect(operator).deploy();
+      token = await Gold.connect(operator).deploy();
     });
 
     it('mint', async () => {
       await expect(token.connect(operator).mint(operator.address, ETH))
         .to.emit(token, 'Transfer')
         .withArgs(ZERO_ADDR, operator.address, ETH);
-      expect(await token.balanceOf(operator.address)).to.eq(ETH.mul(2));
+      expect(await token.balanceOf(operator.address)).to.eq(ETH.add(MINT_BALANCE));
     });
 
     it('burn', async () => {
       await expect(token.connect(operator).burn(ETH))
         .to.emit(token, 'Transfer')
         .withArgs(operator.address, ZERO_ADDR, ETH);
-      expect(await token.balanceOf(operator.address)).to.eq(ETH);
+      expect(await token.balanceOf(operator.address)).to.eq(MINT_BALANCE);
     });
 
     it('burnFrom', async () => {
-      await expect(token.connect(operator).approve(operator.address, ETH));
-      await expect(token.connect(operator).burnFrom(operator.address, ETH))
+      await expect(token.connect(operator).approve(operator.address, MINT_BALANCE));
+      await expect(token.connect(operator).burnFrom(operator.address, MINT_BALANCE))
         .to.emit(token, 'Transfer')
-        .withArgs(operator.address, ZERO_ADDR, ETH);
+        .withArgs(operator.address, ZERO_ADDR, MINT_BALANCE);
       expect(await token.balanceOf(operator.address)).to.eq(ZERO);
     });
   });

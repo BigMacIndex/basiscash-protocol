@@ -7,7 +7,6 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 chai.use(solidity);
 
 describe('Boardroom', () => {
-  const DAY = 86400;
   const ETH = utils.parseEther('1');
   const ZERO = BigNumber.from(0);
   const STAKE_AMOUNT = ETH.mul(5000);
@@ -23,25 +22,25 @@ describe('Boardroom', () => {
     [operator, whale, abuser] = await ethers.getSigners();
   });
 
-  let Cash: ContractFactory;
+  let Gold: ContractFactory;
   let Share: ContractFactory;
   let Boardroom: ContractFactory;
 
   before('fetch contract factories', async () => {
-    Cash = await ethers.getContractFactory('Cash');
+    Gold = await ethers.getContractFactory('Gold');
     Share = await ethers.getContractFactory('Share');
     Boardroom = await ethers.getContractFactory('Boardroom');
   });
 
-  let cash: Contract;
+  let gold: Contract;
   let share: Contract;
   let boardroom: Contract;
 
   beforeEach('deploy contracts', async () => {
-    cash = await Cash.connect(operator).deploy();
+    gold = await Gold.connect(operator).deploy();
     share = await Share.connect(operator).deploy();
     boardroom = await Boardroom.connect(operator).deploy(
-      cash.address,
+      gold.address,
       share.address
     );
   });
@@ -141,8 +140,8 @@ describe('Boardroom', () => {
     });
 
     it('should allocate seigniorage to stakers', async () => {
-      await cash.connect(operator).mint(operator.address, SEIGNIORAGE_AMOUNT);
-      await cash
+      await gold.connect(operator).mint(operator.address, SEIGNIORAGE_AMOUNT);
+      await gold
         .connect(operator)
         .approve(boardroom.address, SEIGNIORAGE_AMOUNT);
 
@@ -152,7 +151,9 @@ describe('Boardroom', () => {
         .to.emit(boardroom, 'RewardAdded')
         .withArgs(operator.address, SEIGNIORAGE_AMOUNT);
 
-      expect(await boardroom.earned(whale.address)).to.eq(SEIGNIORAGE_AMOUNT);
+      expect(await boardroom.earned(whale.address)).to.eq(
+        SEIGNIORAGE_AMOUNT
+      );
     });
 
     it('should fail when user tries to allocate with zero amount', async () => {
@@ -181,8 +182,8 @@ describe('Boardroom', () => {
     });
 
     it('should claim devidends', async () => {
-      await cash.connect(operator).mint(operator.address, SEIGNIORAGE_AMOUNT);
-      await cash
+      await gold.connect(operator).mint(operator.address, SEIGNIORAGE_AMOUNT);
+      await gold
         .connect(operator)
         .approve(boardroom.address, SEIGNIORAGE_AMOUNT);
       await boardroom.connect(operator).allocateSeigniorage(SEIGNIORAGE_AMOUNT);
@@ -193,9 +194,9 @@ describe('Boardroom', () => {
       expect(await boardroom.balanceOf(whale.address)).to.eq(STAKE_AMOUNT);
     });
 
-    it('should claim devidends correctly even after other person stakes after snapshot', async () => {
-      await cash.connect(operator).mint(operator.address, SEIGNIORAGE_AMOUNT);
-      await cash
+   it('should claim devidends correctly even after other person stakes after snapshot', async () => {
+      await gold.connect(operator).mint(operator.address, SEIGNIORAGE_AMOUNT);
+      await gold
         .connect(operator)
         .approve(boardroom.address, SEIGNIORAGE_AMOUNT);
       await boardroom.connect(operator).allocateSeigniorage(SEIGNIORAGE_AMOUNT);
@@ -207,5 +208,8 @@ describe('Boardroom', () => {
         .withArgs(whale.address, SEIGNIORAGE_AMOUNT);
       expect(await boardroom.balanceOf(whale.address)).to.eq(STAKE_AMOUNT);
     });
+
   });
+
+
 });

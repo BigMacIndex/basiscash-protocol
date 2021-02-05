@@ -7,59 +7,8 @@ import '../interfaces/IOracle.sol';
 contract MockOracle is IOracle {
     using SafeMath for uint256;
 
-    uint256 epoch;
-    uint256 period;
-
     uint256 public price;
     bool public error;
-
-    uint256 startTime;
-
-    constructor() public {
-        startTime = block.timestamp;
-    }
-
-    // epoch
-    function callable() public pure returns (bool) {
-        return true;
-    }
-
-    function setEpoch(uint256 _epoch) public {
-        epoch = _epoch;
-    }
-
-    function setStartTime(uint256 _startTime) public {
-        startTime = _startTime;
-    }
-
-    function setPeriod(uint256 _period) public {
-        period = _period;
-    }
-
-    function getLastEpoch() public view returns (uint256) {
-        return epoch;
-    }
-
-    function getCurrentEpoch() public view returns (uint256) {
-        return epoch;
-    }
-
-    function getNextEpoch() public view returns (uint256) {
-        return epoch.add(1);
-    }
-
-    function nextEpochPoint() public view returns (uint256) {
-        return startTime.add(getNextEpoch().mul(period));
-    }
-
-    // params
-    function getPeriod() public view returns (uint256) {
-        return period;
-    }
-
-    function getStartTime() public view returns (uint256) {
-        return startTime;
-    }
 
     function setPrice(uint256 _price) public {
         price = _price;
@@ -74,13 +23,16 @@ contract MockOracle is IOracle {
         emit Updated(0, 0);
     }
 
-    function consult(address, uint256 amountIn)
-        external
-        view
-        override
-        returns (uint256)
-    {
-        return price.mul(amountIn).div(1e18);
+    function price0Last() external override view returns (uint) {
+        return price;
+    }
+
+    function price1Last() external override view returns (uint) {
+        return price;
+    }
+
+    function goldPriceOne() external override view returns(uint256) {
+        return 1850e18;
     }
 
     event Updated(uint256 price0CumulativeLast, uint256 price1CumulativeLast);

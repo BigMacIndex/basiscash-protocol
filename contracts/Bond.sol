@@ -5,9 +5,9 @@ import '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
 
 contract Bond is ERC20Burnable, Ownable, Operator {
     /**
-     * @notice Constructs the Basis Bond ERC-20 contract.
+     * @notice Constructs the Basis Gold Bond ERC-20 contract.
      */
-    constructor() public ERC20('BAB', 'BAB') {}
+    constructor() public ERC20('BSGB', 'BSGB') {}
 
     /**
      * @notice Operator mints basis bonds to a recipient

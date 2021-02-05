@@ -8,9 +8,14 @@ import UniswapV2Router from '@uniswap/v2-periphery/build/UniswapV2Router02.json'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { Provider } from '@ethersproject/providers';
 
-import { advanceTimeAndBlock, latestBlocktime } from './shared/utilities';
+import { advanceTimeAndBlock } from './shared/utilities';
 
 chai.use(solidity);
+
+async function latestBlocktime(provider: Provider): Promise<number> {
+  const { timestamp } = await provider.getBlock('latest');
+  return timestamp;
+}
 
 async function addLiquidity(
   provider: Provider,
@@ -48,10 +53,11 @@ describe('Oracle', () => {
     [operator, whale] = await ethers.getSigners();
   });
 
-  let Cash: ContractFactory;
+  let Gold: ContractFactory;
   let Share: ContractFactory;
   let Oracle: ContractFactory;
   let MockDAI: ContractFactory;
+  let MockLinkOracle: ContractFactory;
 
   // uniswap
   let Factory = new ContractFactory(
@@ -64,10 +70,11 @@ describe('Oracle', () => {
   );
 
   before('fetch contract factories', async () => {
-    Cash = await ethers.getContractFactory('Cash');
+    Gold = await ethers.getContractFactory('Gold');
     Share = await ethers.getContractFactory('Share');
     Oracle = await ethers.getContractFactory('Oracle');
     MockDAI = await ethers.getContractFactory('MockDai');
+    MockLinkOracle = await ethers.getContractFactory('MockLinkOracle');
   });
 
   let factory: Contract;
@@ -82,30 +89,33 @@ describe('Oracle', () => {
   });
 
   let dai: Contract;
-  let cash: Contract;
+  let gold: Contract;
   let share: Contract;
   let oracle: Contract;
+  let linkOracle: Contract;
   let oracleStartTime: BigNumber;
 
   beforeEach('deploy contracts', async () => {
     dai = await MockDAI.connect(operator).deploy();
-    cash = await Cash.connect(operator).deploy();
+    gold = await Gold.connect(operator).deploy();
     share = await Share.connect(operator).deploy();
+    linkOracle = await MockLinkOracle.connect(operator).deploy();
 
     await dai.connect(operator).mint(operator.address, ETH.mul(2));
     await dai.connect(operator).approve(router.address, ETH.mul(2));
-    await cash.connect(operator).mint(operator.address, ETH);
-    await cash.connect(operator).approve(router.address, ETH);
+    await gold.connect(operator).mint(operator.address, ETH);
+    await gold.connect(operator).approve(router.address, ETH);
 
-    await addLiquidity(provider, operator, router, cash, dai, ETH);
+    await addLiquidity(provider, operator, router, gold, dai, ETH);
 
     oracleStartTime = BigNumber.from(await latestBlocktime(provider)).add(DAY);
     oracle = await Oracle.connect(operator).deploy(
       factory.address,
-      cash.address,
+      gold.address,
       dai.address,
       DAY,
-      oracleStartTime
+      oracleStartTime,
+      linkOracle.address
     );
   });
 
@@ -117,7 +127,7 @@ describe('Oracle', () => {
       );
 
       // epoch 0
-      await expect(oracle.update()).to.revertedWith('Epoch: not started yet');
+      await expect(oracle.update()).to.revertedWith('Epoch: not allowed');
       expect(await oracle.nextEpochPoint()).to.eq(oracleStartTime);
       expect(await oracle.getCurrentEpoch()).to.eq(BigNumber.from(0));
 
@@ -127,7 +137,7 @@ describe('Oracle', () => {
       await expect(oracle.update()).to.emit(oracle, 'Updated');
 
       expect(await oracle.nextEpochPoint()).to.eq(oracleStartTime.add(DAY));
-      expect(await oracle.getCurrentEpoch()).to.eq(BigNumber.from(0));
+      expect(await oracle.getCurrentEpoch()).to.eq(BigNumber.from(1));
       // check double update
       await expect(oracle.update()).to.revertedWith('Epoch: not allowed');
     });

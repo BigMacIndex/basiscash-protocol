@@ -9,7 +9,7 @@ import '../interfaces/IRewardDistributionRecipient.sol';
 contract InitialShareDistributor is IDistributor {
     using SafeMath for uint256;
 
-    event Distributed(address pool, uint256 cashAmount);
+    event Distributed(address pool, uint256 goldAmount);
 
     bool public once = true;
 
